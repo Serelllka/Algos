@@ -1,0 +1,324 @@
+#include<bits/stdc++.h>
+ 
+using namespace std;
+ 
+typedef long long ll;
+ 
+struct item
+{
+    int left, right;
+    ll key;
+};
+ 
+struct Node
+{
+    Node *left, *right, *parent;
+    ll key, height;
+ 
+    Node (ll key = 0, Node* parent = nullptr, Node* left = nullptr, Node* right = nullptr)
+            : key(key), left(left), right(right), parent(parent), height(0) {}
+};
+ 
+struct Tree
+{
+    Tree (Node* ptr = nullptr)
+            : head(ptr) {}
+ 
+    Node* find(ll x)
+    {
+        Node* ptr = head;
+        while (ptr != nullptr)
+        {
+            if (x > ptr->key)
+                ptr = ptr->right;
+            else if (x < ptr->key)
+                ptr = ptr->left;
+            else if (x == ptr->key)
+                break;
+        }
+        return ptr;
+    }
+ 
+    Node* erase(ll x)
+    {
+        Node *ptr = this->find(x);
+        if (ptr == nullptr) return nullptr;
+ 
+        if (ptr->left == nullptr && ptr->right == nullptr)
+        {
+            if (ptr == head)
+            {
+                delete this->head;
+                this->head = nullptr;
+                return nullptr;
+            }
+            Node* ret = ptr->parent;
+            if (ptr->parent->left == ptr) ptr->parent->left = nullptr;
+            if (ptr->parent->right == ptr) ptr->parent->right = nullptr;
+            delete ptr;
+            return ret;
+        }
+        if (ptr->right == nullptr)
+        {
+            Node* ret = ptr->parent;
+            ptr->left->parent = ptr->parent;
+            if (ptr->parent != nullptr)
+            {
+                if (ptr->parent->left == ptr) ptr->parent->left = ptr->left;
+                if (ptr->parent->right == ptr) ptr->parent->right = ptr->left;
+            }
+            else
+                head = ptr->left;
+            delete ptr;
+            return ret;
+        }
+        if (ptr->left == nullptr)
+        {
+            Node* ret = ptr->parent;
+            ptr->right->parent = ptr->parent;
+            if (ptr->parent != nullptr)
+            {
+                if (ptr->parent->left == ptr) ptr->parent->left = ptr->right;
+                if (ptr->parent->right == ptr) ptr->parent->right = ptr->right;
+            }
+            else
+                head = ptr->right;
+            delete ptr;
+            return ret;
+        }
+        Node* ret;
+        Node* ptr1 = ptr->left;
+        while (ptr1->right != nullptr)
+        {
+            ptr1 = ptr1->right;
+        }
+        ptr->key = ptr1->key;
+        if (ptr1 == ptr->left)
+        {
+            ret = ptr1->parent;
+            ptr1->parent->left = ptr1->left;
+            if (ptr1->left != nullptr) ptr1->left->parent = ptr1->parent;
+            delete ptr1;
+            return ret;
+        }
+        else
+        {
+            ret = ptr1->parent;
+            ptr1->parent->right = ptr1->left;
+            if (ptr1->left != nullptr) ptr1->left->parent = ptr1->parent;
+            delete ptr1;
+            return ret;
+        }
+    }
+ 
+    Node* insert (ll x)
+    {
+        if (head == nullptr)
+        {
+            head = new Node(x);
+            return head;
+        }
+        Node* prev;
+        Node* ptr = head;
+        while (ptr != nullptr)
+        {
+            prev = ptr;
+            if (x > ptr->key)
+            {
+                ptr = ptr->right;
+                continue;
+            }
+            if (x < ptr->key)
+            {
+                ptr = ptr->left;
+                continue;
+            }
+            if (x == ptr->key)
+                return nullptr;
+        }
+        ptr = new Node(x, prev);
+        if (prev->key > x) prev->left = ptr;
+        if (prev->key < x) prev->right = ptr;
+        return ptr;
+    }
+ 
+    void leftR(Node* it)
+    {
+        Node* ptr = it->right;
+        if (it == this->head)
+            this->head = ptr;
+        else
+        {
+            ptr->parent = it->parent;
+            if (it->parent->left == it)
+                it->parent->left = ptr;
+            else
+                it->parent->right = ptr;
+        }
+ 
+        it->right = ptr->left;
+        if (ptr->left)
+            ptr->left->parent = ptr;
+ 
+        ptr->left = it;
+        it->parent = ptr;
+ 
+        newh(it);
+        newh(ptr);
+    }
+ 
+    void rightR(Node* it)
+    {
+        Node* ptr = it->left;
+        if (it == this->head)
+            this->head = ptr;
+        else
+        {
+            ptr->parent = it->parent;
+            if (it->parent->left == it)
+                it->parent->left = ptr;
+            else
+                it->parent->right = ptr;
+        }
+ 
+        it->left = ptr->right;
+        if (ptr->right)
+            ptr->right->parent = ptr;
+ 
+        ptr->right = it;
+        it->parent = ptr;
+ 
+        newh(it);
+        newh(ptr);
+    }
+ 
+    int hcalc(Node* it)
+    {
+        if (it == nullptr)
+            return 0;
+        return it->height = max(hcalc(it->left), hcalc(it->right)) + 1;
+    }
+ 
+    int newh(Node* it)
+    {
+        if (!it)
+            return 0;
+        return it->height = max(it->left ? it->left->height : 0, it->right ? it->right->height : 0) + 1;
+    }
+ 
+    int diff(Node* it)
+    {
+        int r = it->right == nullptr ? 0 : it->right->height;
+        int l = it->left == nullptr ? 0 : it->left->height;
+        return r - l;
+    }
+ 
+    void _balance(Node* it)
+    {
+        if (diff(it) == 2)
+        {
+            if (diff(it->right) == -1)
+            {
+                rightR(it->right);
+            }
+            leftR(it);
+        }
+        else if (diff(it) == -2)
+        {
+            if (diff(it->left) == 1)
+            {
+                leftR(it->left);
+            }
+            rightR(it);
+        }
+    }
+ 
+    void copy (vector<item> &vc, int it, Node* node)
+    {
+        if (vc.size() == 0) return;
+        if(vc[it].left != -1)
+        {
+            node->left = new Node(vc[vc[it].left].key, node);
+            copy(vc, vc[it].left, node->left);
+        }
+        if(vc[it].right != -1)
+        {
+            node->right = new Node(vc[vc[it].right].key, node);
+            copy(vc, vc[it].right, node->right);
+        }
+    }
+    Node* head;
+};
+ 
+void out (Node* head)
+{
+    int line = 1, k = 0;
+    queue<Node*> q;
+    if(head != nullptr) q.push(head);
+    while(q.size())
+    {
+        Node* ptr = q.front();
+        cout << ptr->key << ' ';
+        q.pop();
+        k = 0;
+        if (ptr->left != nullptr)
+        {
+            q.push(ptr->left);
+            cout << line + q.size() << ' ';
+        }
+        else
+            cout << "0 ";
+        if (ptr->right != nullptr)
+        {
+            q.push(ptr->right);
+            cout << line + q.size() << ' ';
+        }
+        else
+            cout << "0 ";
+        line += 1;
+        //cout << ptr->height;
+        cout << '\n';
+    }
+}
+ 
+int main()
+{
+#ifndef ONPC
+    freopen ("deletion.in", "r", stdin);
+    freopen ("deletion.out", "w", stdout);
+#endif // ONPC
+ 
+#ifdef ONPC
+    freopen ("input.txt", "r", stdin);
+#endif //ONPC
+ 
+    Tree* tree;
+    vector<item> vc;
+    int n, ins;
+    cin >> n;
+    vc.resize(n);
+    for (int i = 0; i < n; ++i)
+    {
+        cin >> vc[i].key >> vc[i].left >> vc[i].right;
+        if (i == 0)
+        {
+            Node* node = new Node(vc[i].key);
+            tree = new Tree(node);
+        }
+        vc[i].left--;
+        vc[i].right--;
+    }
+    cin >> ins;
+    Node* ptr;
+    tree->copy(vc, 0, tree->head);
+    ptr = tree->erase(ins);
+    while (ptr != nullptr)
+    {
+        Node* pptr = ptr->parent;
+        tree->hcalc(ptr);
+        tree->_balance(ptr);
+        ptr = pptr;
+    }
+    cout << n - 1 << endl;
+    out(tree->head);
+}
