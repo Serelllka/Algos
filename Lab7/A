@@ -1,0 +1,65 @@
+#include <iostream>
+#include <vector>
+#include <fstream>
+#define pb push_back
+ 
+typedef long long ll;
+ 
+using namespace std;
+ 
+struct item
+{
+    item (ll key = 0, int left = -1, int right = -1)
+        : key(key), left(left), right(right), hg(-1) {}
+ 
+    int height(vector<item> &vc)
+    {
+        if (left == -1 && right == -1)
+        {
+            hg = 0;
+            return hg;
+        }
+        if (left == -1)
+        {
+            hg = vc[right].height(vc) + 1;
+            return hg;
+        }
+        if (right == -1)
+        {
+            hg = vc[left].height(vc) + 1;
+            return hg;
+        }
+        hg = max(vc[left].height(vc), vc[right].height(vc)) + 1;
+        return hg;
+    }
+    int left, right;
+    int hg;
+    ll key;
+};
+ 
+vector<item> vc;
+ 
+int main() {
+    freopen ("balance.in", "r", stdin);
+    freopen ("balance.out", "w", stdout);
+    int n;
+    cin >> n;
+    for (int i = 0; i < n; ++i)
+    {
+        int k, l, r;
+        cin >> k >> l >> r;
+        vc.pb(item(k, l - 1, r - 1));
+    }
+    for (auto it = vc.begin(); it != vc.end(); ++it)
+    {
+        if (it->hg == -1)
+            it->height(vc);
+        if (it->left == -1)
+            cout << it->hg << '\n';
+        else if (it->right == -1)
+            cout << -it->hg << '\n';
+        else
+            cout << vc[it->right].hg - vc[it->left].hg << '\n';
+    }
+    return 0;
+}
