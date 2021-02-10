@@ -1,0 +1,387 @@
+#include <fstream>
+#include <iostream>
+#include <queue>
+#include <string>
+ 
+struct Node
+{
+    Node *parent, *left, *right;
+    int key, height;
+ 
+    explicit Node(int x = 0)
+    : parent(nullptr), left(nullptr), right(nullptr), key(x), height(1) {}
+ 
+    Node* &ptr_to_this_in_parent()
+    {
+        if (parent -> left == this)
+            return parent -> left;
+        return parent -> right;
+    }
+ 
+    bool is_leaf() const
+    {
+        return !(left || right);
+    }
+ 
+    int diff() const
+    {
+        if (this -> is_leaf())
+            return 0;
+        if (!right)
+            return -left -> height;
+        if (!left)
+            return right -> height;
+        return right -> height - left -> height;
+    }
+ 
+    bool is_left() const    //return false if this == root (or if parent == nullptr)
+    {
+        if (!parent)
+            return false;
+        return parent -> left == this;
+    }
+/*
+    bool is_right() const    //return false if this == root (or if parent == nullptr)
+    {
+        if (!parent)
+            return false;
+        return parent -> right == this;
+    }
+*/
+    int children() const
+    {
+        return (left || right) + (left && right);
+    }
+};
+ 
+struct input_type
+{
+    int key, left, right, height;
+    explicit input_type(int k = 0, int l = -1, int r = -1, int h = 1)
+    : key(k), left(l), right(r), height(h) {}
+};
+ 
+class Tree
+{
+    Node *root;
+ 
+    void _clear_tree(Node *start)
+    {
+        if (!start)
+            return;
+        _clear_tree(start -> left);
+        _clear_tree(start -> right);
+        delete start;
+    }
+ 
+    static int _set_height(Node *start)
+    {
+        if (!start)
+            return 0;
+        return start -> height = std::max(_set_height(start -> left), _set_height(start -> right)) + 1;
+    }
+ 
+    static int _update_height(Node* start)
+    {
+        if (!start)
+            return 0;
+        return start -> height = std::max(start -> left ? start -> left -> height : 0, start -> right ? start -> right -> height : 0) + 1;
+    }
+ 
+    Node* _rotate_left(Node *start)
+    {
+        Node *temp = start -> right;
+ 
+        start -> right = temp -> left;
+        if (temp -> left)
+            temp -> left -> parent = start;
+ 
+        temp -> parent = start -> parent;
+        if (start != root)
+            start -> ptr_to_this_in_parent() = temp;
+        else
+            root = temp;
+ 
+        temp -> left = start;
+        start -> parent = temp;
+ 
+        _update_height(start);
+        _update_height(temp);
+ 
+        return temp;
+    }
+ 
+    Node* _rotate_right(Node *start)
+    {
+        Node *temp = start -> left;
+ 
+        start -> left = temp -> right;
+        if (temp -> right)
+            temp -> right -> parent = start;
+ 
+        temp -> parent = start -> parent;
+        if (start != root)
+            start -> ptr_to_this_in_parent() = temp;
+        else
+            root = temp;
+ 
+        temp -> right = start;
+        start -> parent = temp;
+ 
+        _update_height(start);
+        _update_height(temp);
+ 
+        return temp;
+    }
+public:
+    Node* _balance(Node *start)
+    {
+        if (start -> diff() == 2)
+        {
+            if (start -> right -> diff() == -1)
+                _rotate_right(start -> right);
+            return _rotate_left(start);
+        }
+        if (start -> diff() == -2)
+        {
+            if (start -> left -> diff() == 1)
+                _rotate_left(start -> left);
+            return _rotate_right(start);
+        }
+        return start;
+    }
+private:
+    static Node* _max(Node *start)
+    {
+        Node *temp = start;
+        while (temp && temp -> right) temp = temp -> right;
+        return temp;
+    }
+ 
+    Node* _search(int key_value) const
+    {
+        Node *temp = root;
+        while (temp && temp -> key != key_value)
+            temp = key_value < temp -> key ? temp -> left : temp -> right;
+        return temp;
+    }
+ 
+    void _insert(Node* child)
+    {
+        if (!root)
+            root = child;
+        else
+        {
+            Node *temp = root;
+            while (child -> key < temp -> key ? temp -> left : temp -> right)
+                temp = (child -> key < temp -> key ? temp -> left : temp -> right);
+            (child -> key < temp -> key ? temp -> left : temp -> right) = child;
+            child -> parent = temp;
+ 
+            if (temp -> children() == 1)
+                for (; temp; temp = temp -> parent)
+                {
+                    _update_height(temp);
+                    if (std::abs(temp -> diff()) > 1)            //first thing to optimize kekw
+                        temp = _balance(temp);
+                }
+        }
+    }
+ 
+    Node* _erase(Node* temp)
+    {
+        if (temp -> children() == 0)
+        {
+            if (temp == root)
+                root = nullptr;
+            else
+                temp -> ptr_to_this_in_parent() = nullptr;
+        }
+        else if (temp -> children() == 1)
+        {
+            if (temp -> left)
+            {
+                temp -> left -> parent = temp -> parent;
+                if (temp == root)
+                    root = temp -> left;
+                else
+                    temp -> ptr_to_this_in_parent() = temp -> left;
+            }
+            if (temp -> right)
+            {
+                temp -> right -> parent = temp -> parent;
+                if (temp == root)
+                    root = temp -> right;
+                else
+                    temp -> ptr_to_this_in_parent() = temp -> right;
+            }
+        }
+        else    //temp -> children() == 2
+        {
+            Node *candidate = _erase(_max(temp -> left));
+ 
+            candidate -> parent = temp -> parent;
+            if (temp == root)
+                root = candidate;
+            else
+                temp -> ptr_to_this_in_parent() = candidate;
+ 
+            candidate -> left = temp -> left;
+            if (temp -> left)
+                temp -> left -> parent = candidate;
+ 
+            candidate -> right = temp -> right;
+            if (temp -> right)
+                temp -> right -> parent = candidate;
+ 
+            _update_height(candidate);
+        }
+        for (Node* start = temp; start; start = start -> parent)
+        {
+            _update_height(start);
+            if (std::abs(start -> diff()) > 1)            //first thing to optimize kekw
+                start = _balance(start);
+        }
+        return temp;
+    }
+ 
+public:
+ 
+    explicit Tree()
+    : root(nullptr) {}
+ 
+    ~Tree()
+    {
+        _clear_tree(root);
+    }
+ 
+    Node* get_root()
+    {
+        return root;
+    }
+ 
+    int root_balance()
+    {
+        if (!root)
+            return 0;
+        return root -> diff();
+    }
+ 
+    void make_tree(input_type *input, const int size)
+    {
+        if (!size)
+            return;
+        Node* arr[size];
+        for (int i = 0; i < size; i++)
+            arr[i] = new Node(input[i].key);
+        for (int i = 0; i < size; i++)
+        {
+            if (input[i].left)
+            {
+                arr[i] -> left = arr[input[i].left - 1];
+                arr[input[i].left - 1] -> parent = arr[i];
+            }
+            if (input[i].right)
+            {
+                arr[i] -> right = arr[input[i].right - 1];
+                arr[input[i].right - 1] -> parent = arr[i];
+            }
+        }
+        root = arr[0];
+        _set_height(root);
+        for (int i = 0; i < size; i++)
+        {
+            input[i].height = arr[i] -> height;
+        }
+    }
+ 
+    friend std::ostream& operator<<(std::ostream& out, const Tree& t);
+ 
+    bool search(int key_value) const
+    {
+        return _search(key_value) != nullptr;
+    }
+ 
+    void insert(int key_value)
+    {
+        if (search(key_value))
+            return;
+        Node *child = new Node(key_value);
+        _insert(child);
+    }
+ 
+    void erase(int key_value)
+    {
+        Node *temp = _search(key_value);
+        if (!temp)
+            return;
+        Node* trash = _erase(temp);
+        delete trash;
+    }
+};
+ 
+std::ostream& operator<<(std::ostream& out, const Tree& t)
+{
+    std::queue<Node> q;
+    if (t.root)
+        q.push(*(t.root));
+    int count = 0;
+    while(!q.empty())
+    {
+        out << q.front().key;// << "\t-> " << q.front().height;
+        if (q.front().left)
+        {
+            q.push(*(q.front().left));
+            out << ' ' << q.size() + count;
+        }
+        else
+            out << ' ' << 0;
+        if (q.front().right)
+        {
+            q.push(*(q.front().right));
+            out << ' ' << q.size() + count;
+        }
+        else
+            out << ' ' << 0;
+        out << '\n';
+        q.pop();
+        count++;
+    }
+    return out;
+}
+ 
+int main()
+{
+    std::fstream in("avlset.in", std::ios::in);
+#ifndef RUNNING_ON_MY_PC
+    std::fstream out("avlset.out", std::ios::out);
+#else
+    auto& out = std::cout;
+#endif //RUNNING_ON_MY_PC
+ 
+    Tree t;
+    std::string cmd;
+    int n, x;
+    in >> n;
+    while (in >> cmd)
+    {
+        in >> x;
+        if (cmd == "A")
+        {
+            t.insert(x);
+            out << t.root_balance() << '\n';
+        }
+        if (cmd == "D")
+        {
+            t.erase(x);
+            out << t.root_balance() << '\n';
+        }
+        if (cmd == "C")
+            out << (t.search(x) ? 'Y' : 'N') << '\n';
+    }
+    in.close();
+#ifndef RUNNING_ON_MY_PC
+    out.close();
+#endif //RUNNING_ON_MY_PC
+    return 0;
+}
